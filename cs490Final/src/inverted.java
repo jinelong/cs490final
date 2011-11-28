@@ -4,25 +4,38 @@ import java.io.DataInputStream;
 import java.io.DataOutputStream;
 import java.io.File;
 import java.io.FileInputStream;
-import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStreamReader;
 import java.io.OutputStreamWriter;
-import java.math.BigDecimal;
 import java.util.ArrayList;
 import java.util.Scanner;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
+//github: git@github.com:jinelong/cs490final.git
 
-// the word is already stemmed
-// stopword removed
+/*
+ * cs490 final project
+ * 
+ */
 
 public class inverted {
 	final static boolean DEBUG = true; 
-	final static String TRAINING_PATH = "/tmp/spamHam/training2/";
-	final static String TESTING_PATH = "/tmp/spamHam/testing/";
+	final static boolean SHOW_RESULT = true;
+	
+	// the threshold for determine whether a message is a spam or not
+	final static double threshhold = 0.5;
+	/*
+	 * training : ling-spam
+	 * training2:  PU1TESTING_PATH
+	 */
+	final static String TRAINING_PATH = "/tmp/spamHam/training/";
+	final static String TRAINING_PATH2 = "/tmp/spamHam/training2/";
+	
+	final static String TESTING_PATH = "/tmp/spamHam/testingLing/";
+	final static String TESTING_PATH2 = "/tmp/spamHam/testingPU1/";
+	
 	final static String ROOT_PATH = "/tmp/spamHam/";
 	
 	static int totalNumOfFiles = 0;
@@ -30,11 +43,11 @@ public class inverted {
 	static int totalNumOfHam = 0;
 	static int totalWords = 0;
 	
+	
 	FileOutputStream ostream ;
     DataOutputStream out;
     BufferedWriter bw ;
-	
-	
+		
 	
 	static double Ph = 0;	//the overall probability that any given message is not spam 
 	static double Ps = 0; //the overall probability that any given message is spam
@@ -62,9 +75,15 @@ public class inverted {
     	
 	}
 	
+	//list of word that with statistics
 	static ArrayList<invertedSlot> wordList = new ArrayList<invertedSlot>();
-	static ArrayList<String> rawList = new ArrayList<String>();
 	
+	static ArrayList<String> rawList = new ArrayList<String>(); //raw word list 
+	
+	/**
+	 * @throws IOException
+	 * print out debug information
+	 */
 	public void showList() throws IOException{
 		
 		 ostream = new FileOutputStream("/run/shm/wordStat");
@@ -89,6 +108,10 @@ public class inverted {
 	}
 	
 	
+	/**
+	 * @param word
+	 * @return  true if the word is a symbol
+	 */
 	public boolean checkWord(String word){
 		
 		Pattern p = Pattern.compile("\\W");
@@ -98,15 +121,18 @@ public class inverted {
 		
 	}
 
-public void training(File[] files) throws IOException {
+/**
+ * @param files : traning direcotry
+ * @param trainingpath	: training directory in string
+ * @throws IOException
+ * 
+ * this method will read traning files and record the stats for each word
+ */
+public void training(File[] files, String trainingpath) throws IOException {
+	System.out.println("total file in " + trainingpath + " to train: " + files.length);
     for (File file : files) {
         if (!file.isDirectory() && file.getName().contains(".txt")) {
            
-            //System.out.println("File: " + file.getName());
-            
-            // for calculating probablity of spam and ham
-            // spam / total
-            // ham / total
         	totalNumOfFiles ++;
             if(file.getName().contains("spm"))
             	ifHam = false;
@@ -122,7 +148,7 @@ public void training(File[] files) throws IOException {
             
             
            // System.out.println("proccessing " + fileName);
-            FileInputStream fstream = new FileInputStream(TRAINING_PATH+fileName);
+            FileInputStream fstream = new FileInputStream(trainingpath+fileName);
             DataInputStream in = new DataInputStream(fstream);
             BufferedReader br = new BufferedReader(new InputStreamReader(in));
             String strLine = null;
@@ -152,7 +178,6 @@ public void training(File[] files) throws IOException {
             							wordList.get(i).spamCount++;
             							
             						}
-            					
             						break;            						
             					}
             					
@@ -194,9 +219,8 @@ public void training(File[] files) throws IOException {
 	Ph = (double)totalNumOfHam/ totalNumOfFiles;	//the overall probability that any given message is not spam 
 	Ps = (double)totalNumOfSpam/ totalNumOfFiles; //the overall probability that any given message is spam
 	
-//	Ph = (double)totalNumOfHam/totalNumOfSpam;
-//	Ps = (double)totalNumOfSpam/totalNumOfHam;
-	
+	//for each distinct word in the training corpora, calculate its probability 
+	//of appearing in spam messages and legitimate messages
 	for(int i =0;i < wordList.size(); i++){
     	wordList.get(i).hamProb = (double)wordList.get(i).hamCount/(wordList.get(i).hamCount+wordList.get(i).spamCount);
 		wordList.get(i).spamProb = (double)wordList.get(i).spamCount/(wordList.get(i).hamCount+wordList.get(i).spamCount);
@@ -209,12 +233,14 @@ public void training(File[] files) throws IOException {
 	 
 	 
 	}//training
-	   
-	//return true if it is spam
 	
 	//Psw = (Pws * Ps)/ (Pws*Ps+ Pwh*Ph)
 
 
+	/**
+	 * @param word
+	 * @return: the word stat, if the word was not included in the training set, return 0 for both param
+	 */
 	private double[] getProbs(String word){
 		double [] retval = new double[2];
 		retval[0] = 0;
@@ -223,13 +249,8 @@ public void training(File[] files) throws IOException {
 		if(rawList.contains(word)){
 			for(invertedSlot s: wordList){
 				if(s.word.equals(word)){
-					/*
-					 * double Pwh = 0; //the probability that the word "replica" appears in ham messages.calcualte this for each word
-						double Pws = 0; // probability that the word "replica" appears in spam messages;
-					 */
 					retval[0] = s.hamProb;
 					retval[1] = s.spamProb;
-					
 				}
 			}
 			
@@ -276,8 +297,8 @@ public void training(File[] files) throws IOException {
      			returnPair = getProbs(temp);
      			counter ++;
      			
-     			Pwh = returnPair[0];
-     			Pws = returnPair[1];
+     			Pws = returnPair[0];
+     			Pwh = returnPair[1];
      			
      			if(Pwh==0 || Pws ==0)
      				continue;
@@ -289,9 +310,8 @@ public void training(File[] files) throws IOException {
      			}else
      				System.out.println("got ya");
      		}//while
-        	 
+        	
          }
-         
          
          s.close();
          br.close();
@@ -313,9 +333,6 @@ public void training(File[] files) throws IOException {
         	 term2 += aggregate2.get(i);
          }
          
-     	// System.out.println("t1: " + t1.doubleValue());
-     	// System.out.println("t2: " + t2.doubleValue());
-      
          spamScore = term1/(term1+term2);
          
          //Psw /= counter;
@@ -324,7 +341,14 @@ public void training(File[] files) throws IOException {
          return spamScore;
 	}
     
-	public void getSpamQuota(File[] files, String flag) throws IOException{
+	/**
+	 * @param files
+	 * @param flag
+	 * @throws IOException
+	 * 
+	 * this method is for debugging purpose
+	 */
+	public void evaluate(File[] files, String flag) throws IOException{
 		
 			
 		 	 ostream = new FileOutputStream(ROOT_PATH+"outLog");
@@ -333,7 +357,7 @@ public void training(File[] files) throws IOException {
             double total = 0;
             int counter = 0;
             
-            System.out.println("-----getSpamQuota----");
+            System.out.println("-----evaluate----");
 		   for (File file : files) {
 		        if (!file.isDirectory() && file.getName().contains(".txt")) {
 		         
@@ -348,7 +372,8 @@ public void training(File[] files) throws IOException {
 			            	
 		            
 		            String fileName = file.getName().trim();
-		         
+		            
+		            //output evaluation result here
 		           double retval =  estimate(fileName);
 		            total += retval;
 		            bw.write(fileName + " " + retval+"\n");
@@ -361,12 +386,17 @@ public void training(File[] files) throws IOException {
 		ostream.close();
 		
 		System.out.println("count: " + counter + " total " + total +" files\t" + "averyge score: " + total/counter);
-	}//getSpamQuota
+	}
+	
+	
     public static void main(String []args) throws IOException {
     	inverted temp = new inverted();
     	
-        File[] files = new File(TRAINING_PATH).listFiles();
-        temp.training(files);
+        //File[] files = new File(TRAINING_PATH).listFiles();
+        //temp.training(files,TRAINING_PATH );
+        
+        File[] files3 = new File(TRAINING_PATH2).listFiles();
+        temp.training(files3,TRAINING_PATH2 );
         
         System.out.println("training done");
         
@@ -374,14 +404,13 @@ public void training(File[] files) throws IOException {
        
         while(true){
         	
-        	
         	String input;
         	System.out.print("spm or msg? ");
         	Scanner stdin = new Scanner(System.in);
         	input = stdin.next();
         	
         	
-        	temp.getSpamQuota(files2, input);
+        	temp.evaluate(files2, input);
         }
       /* 
         while(true){
