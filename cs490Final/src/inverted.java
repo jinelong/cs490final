@@ -4,6 +4,7 @@ import java.io.DataInputStream;
 import java.io.DataOutputStream;
 import java.io.File;
 import java.io.FileInputStream;
+import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStreamReader;
@@ -48,6 +49,11 @@ public class inverted {
     DataOutputStream out;
     BufferedWriter bw ;
 		
+    FileOutputStream ostream2 ;
+    DataOutputStream out2;
+    BufferedWriter bw2 ;
+		
+    
 	
 	static double Ph = 0;	//the overall probability that any given message is not spam 
 	static double Ps = 0; //the overall probability that any given message is spam
@@ -275,7 +281,6 @@ public void training(File[] files, String trainingpath) throws IOException {
 		double zero = 0;
 		
 		
-		
 		 FileInputStream fstream = new FileInputStream(TESTING_PATH+fileName);
          DataInputStream in = new DataInputStream(fstream);
          BufferedReader br = new BufferedReader(new InputStreamReader(in));
@@ -336,8 +341,8 @@ public void training(File[] files, String trainingpath) throws IOException {
          spamScore = term1/(term1+term2);
          
          //Psw /= counter;
-         System.out.println("spamScore is " + spamScore + " counter is " + counter + " term1: " + term1 + " term2: "+ term2);
-        
+        //System.out.println("spamScore is " + spamScore + " counter is " + counter + " term1: " + term1 + " term2: "+ term2);
+       
          return spamScore;
 	}
     
@@ -350,17 +355,23 @@ public void training(File[] files, String trainingpath) throws IOException {
 	 */
 	public void evaluate(File[] files, String flag) throws IOException{
 		
-			
+		/*	
 		 	 ostream = new FileOutputStream(ROOT_PATH+"outLog");
              out = new DataOutputStream(ostream);
              bw = new BufferedWriter(new OutputStreamWriter(out));
+         */    
+             ostream2 = new FileOutputStream(ROOT_PATH+"stat");
+             out2 = new DataOutputStream(ostream2);
+             bw2 = new BufferedWriter(new OutputStreamWriter(out2));
+             
             double total = 0;
             int counter = 0;
             
             System.out.println("-----evaluate----");
 		   for (File file : files) {
 		        if (!file.isDirectory() && file.getName().contains(".txt")) {
-		         
+		    
+		        	/*
 		        	if(flag.equals("spm")){
 			            if(!file.getName().contains("spm"))
 			            	continue;
@@ -368,25 +379,84 @@ public void training(File[] files, String trainingpath) throws IOException {
 			        else{
 			        	if(file.getName().contains("spm"))
 			            	continue;
-			        }
+			        }*///commented out, evaluate all messages
 			            	
 		            
 		            String fileName = file.getName().trim();
+		            System.out.println("evaluating " + fileName);
 		            
 		            //output evaluation result here
 		           double retval =  estimate(fileName);
 		            total += retval;
-		            bw.write(fileName + " " + retval+"\n");
+		         //   bw.write(fileName + " " + retval+"\n");
 		            counter ++;
 		 
+		            
+		            String result = "";
+		            if(retval > 0.5)
+		           	 result = "spm";
+		            else
+		           	 result = "msg";
+		             bw2.write(fileName+"\t"+result+"\n");
+		          
+		            
 		        }//if
 		   }//for
 		bw.close();
 		out.close();
 		ostream.close();
 		
+		  
+        bw2.close();
+        out2.close();
+        ostream2.close();
+        
 		System.out.println("count: " + counter + " total " + total +" files\t" + "averyge score: " + total/counter);
+		printStat();
 	}
+	
+	public void printStat() throws IOException{
+		
+
+		int total = 0;
+		int correctSpam = 0;
+		int errorSpam = 0;
+		
+		int spamCount = 0;
+		int hamCount = 0;
+		
+		System.out.println("---printStat---");
+		
+		FileInputStream fstream = new FileInputStream(ROOT_PATH+"stat");
+        DataInputStream in = new DataInputStream(fstream);
+        BufferedReader br = new BufferedReader(new InputStreamReader(in));
+        String strLine = null;
+        Scanner s = null;
+        
+        while ((strLine = br.readLine()) != null)   {
+       	 s = new Scanner(strLine);
+    		while(s.hasNext()){ 
+    			String name = s.next();
+    			String result = s.next();
+    			
+    			if(name.contains("spm"))
+    				spamCount ++;
+    			else
+    				hamCount ++;
+    				
+    			
+    			if(name.contains("spm") && result.equals("spm"))
+    				correctSpam ++;
+    			else if(name.contains("msg") && result.equals("spm"))
+    				errorSpam ++;
+    			
+    			
+    		}
+    		total ++;
+    	}
+        System.out.println("total: " + total + " spamCount: " + spamCount + " hamCount: " + hamCount + " corretSpam: " + correctSpam + " errorSpam: " + errorSpam );
+	}
+	
 	
 	
     public static void main(String []args) throws IOException {
@@ -395,23 +465,23 @@ public void training(File[] files, String trainingpath) throws IOException {
         //File[] files = new File(TRAINING_PATH).listFiles();
         //temp.training(files,TRAINING_PATH );
         
-        File[] files3 = new File(TRAINING_PATH2).listFiles();
-        temp.training(files3,TRAINING_PATH2 );
+        File[] files2 = new File(TRAINING_PATH).listFiles();
+        temp.training(files2,TRAINING_PATH);
         
         System.out.println("training done");
         
-        File[] files2 = new File(TESTING_PATH).listFiles();
+        File[] files3 = new File(TESTING_PATH).listFiles();
        
-        while(true){
-        	
+       	 
         	String input;
         	System.out.print("spm or msg? ");
         	Scanner stdin = new Scanner(System.in);
         	input = stdin.next();
         	
         	
-        	temp.evaluate(files2, input);
-        }
+        	temp.evaluate(files3, input);
+       
+        	
       /* 
         while(true){
         	
